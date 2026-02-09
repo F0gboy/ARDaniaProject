@@ -97,3 +97,8 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+Assets/UnityXRContent/ARFoundation/SimulationEnvironments/Backyard/Models
+Assets/UnityXRContent/ARFoundation/SimulationEnvironments/Backyard/Prefab/Custom
+Assets/UnityXRContent/ARFoundation/SimulationEnvironments/Backyard/Prefab
+Assets/UnityXRContent/ARFoundation/SimulationEnvironments
+Assets/UnityXRContent
