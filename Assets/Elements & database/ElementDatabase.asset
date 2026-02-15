@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cc7bf25a1f546544be7ee54c4e2e62a, type: 3}
+  m_Name: ElementDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::ElementDatabase
+  elements:
+  - {fileID: 11400000, guid: 037638a09244baa4eb3f3ed6f255154f, type: 2}
+  - {fileID: 11400000, guid: 6ac1eec82acb8974ca43361ce22c2a19, type: 2}
+  - {fileID: 11400000, guid: 126f05b81bc574d478f3f0e03b5fe730, type: 2}
+  - {fileID: 11400000, guid: 999b4a559b299294ca653fc3b29d01f6, type: 2}
+  - {fileID: 11400000, guid: afc6fea4b8beb5d47979b630c3b2951d, type: 2}
+  - {fileID: 11400000, guid: e3e12549614805548bd3b623bd3581c7, type: 2}
+  - {fileID: 11400000, guid: 8b3e5a93feca28c49aea5ba90095e8d4, type: 2}
+  - {fileID: 11400000, guid: e69e182c28cd3de4484cc8569ba6e011, type: 2}
+  - {fileID: 11400000, guid: c7c727ad055c5e544932ab89d3486b9e, type: 2}
+  - {fileID: 11400000, guid: a5187f385cddb654091b0634666f3560, type: 2}
+  recipes:
+  - ingredientA: 1
+    ingredientB: 2
+    result: 5
+  - ingredientA: 1
+    ingredientB: 3
+    result: 7
+  - ingredientA: 1
+    ingredientB: 4
+    result: 10
+  - ingredientA: 2
+    ingredientB: 3
+    result: 6
+  - ingredientA: 2
+    ingredientB: 3
+    result: 6
+  - ingredientA: 2
+    ingredientB: 4
+    result: 9
+  - ingredientA: 3
+    ingredientB: 4
+    result: 8
