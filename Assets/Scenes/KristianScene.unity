@@ -408,15 +408,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f89b8d289a19a2440bc47fbe0656cd4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ElementOverlayUI
-  overlayImage: {fileID: 73608700}
-  fireIcon: {fileID: 2800000, guid: 8d18c63b3271817468177e1db58bdf2a, type: 3}
-  waterIcon: {fileID: 2800000, guid: f4e80f0086eb55448881a4e508d4a017, type: 3}
-  windIcon: {fileID: 2800000, guid: f4e80f0086eb55448881a4e508d4a017, type: 3}
-  earthIcon: {fileID: 2800000, guid: 605a26328d2adaa4e9d5fa563c91b885, type: 3}
-  steamIcon: {fileID: 2800000, guid: 605a26328d2adaa4e9d5fa563c91b885, type: 3}
-  mistIcon: {fileID: 2800000, guid: 605a26328d2adaa4e9d5fa563c91b885, type: 3}
-  mudIcon: {fileID: 2800000, guid: 605a26328d2adaa4e9d5fa563c91b885, type: 3}
-  dustIcon: {fileID: 2800000, guid: 605a26328d2adaa4e9d5fa563c91b885, type: 3}
 --- !u!4 &345318293
 Transform:
   m_ObjectHideFlags: 0
@@ -547,15 +538,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d97a7ea6ef9ed141927d92799fdf7de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MarkerDetenctionAR
+  arCameraManager: {fileID: 1750081674}
+  arCamera: {fileID: 1750081676}
   webcamIndex: 0
-  webcamWidth: 1280
-  webcamHeight: 720
-  originalImage: {fileID: 1450428681}
+  originalImage: {fileID: 862933959}
+  grayscaleImage: {fileID: 47093062}
   thresholdImage: {fileID: 1050093315}
   contoursImage: {fileID: 1360078145}
+  warpedImage: {fileID: 1964208823}
+  gridImage: {fileID: 52947017}
+  finalImage: {fileID: 1450428681}
   warpSize: 300
   minContourArea: 2000
-  maxContourArea: 50000
+  drawGridValues: 1
 --- !u!4 &848909326
 Transform:
   m_ObjectHideFlags: 0
@@ -1728,7 +1723,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c592bef6e703f14385da0f00c6d0160, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MarkerElementManager
-  mainCamera: {fileID: 1750081676}
+  arCamera: {fileID: 1750081676}
+  arRaycastManager: {fileID: 638723523}
+  arCameraManager: {fileID: 1750081674}
   firePrefab: {fileID: 5695101109399301894, guid: 0187048367125bd42ab04083bdec755d, type: 3}
   waterPrefab: {fileID: 8556828990028175205, guid: 9cf2b2c11ec0b724499f08f0c10444bd, type: 3}
   windPrefab: {fileID: 5695101109399301894, guid: 0187048367125bd42ab04083bdec755d, type: 3}
@@ -1738,10 +1735,6 @@ MonoBehaviour:
   mudPrefab: {fileID: 3577864747118012536, guid: 2ea63eb948764264cbaa9319ce7e65ca, type: 3}
   dustPrefab: {fileID: 3577864747118012536, guid: 2ea63eb948764264cbaa9319ce7e65ca, type: 3}
   lavaPrefab: {fileID: 3577864747118012536, guid: 2ea63eb948764264cbaa9319ce7e65ca, type: 3}
-  markerDistance: 2
-  realMarkerSizeMeters: 0.1
-  combineDistanceThreshold: 0.3
-  combineCooldown: 2
 --- !u!4 &2023590325
 Transform:
   m_ObjectHideFlags: 0

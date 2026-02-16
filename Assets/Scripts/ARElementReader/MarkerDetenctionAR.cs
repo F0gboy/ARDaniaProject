@@ -1,5 +1,3 @@
-#define USE_WEBCAM_IN_EDITOR
-
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
@@ -55,6 +53,9 @@ public sealed class MarkerDetectionAR : MonoBehaviour
     private PointF[] dstQuad;
     private List<MarkerPattern> markers;
 
+    private int frameWidth;
+    private int frameHeight;
+
     private void OnEnable()
     {
         warpedFrame = new Mat(warpSize, warpSize, DepthType.Cv8U, 1);
@@ -70,27 +71,29 @@ public sealed class MarkerDetectionAR : MonoBehaviour
 
         markers = CreateMarkerPatterns();
 
-#if UNITY_EDITOR && USE_WEBCAM_IN_EDITOR
+#if UNITY_EDITOR
         StartWebcam();
 #else
-        arCameraManager.frameReceived += OnCameraFrameReceived;
+        if (arCameraManager != null)
+            arCameraManager.frameReceived += OnCameraFrameReceived;
 #endif
     }
 
     private void OnDisable()
     {
-#if UNITY_EDITOR && USE_WEBCAM_IN_EDITOR
+#if UNITY_EDITOR
         if (webcam != null && webcam.isPlaying)
             webcam.Stop();
 #else
-        arCameraManager.frameReceived -= OnCameraFrameReceived;
+        if (arCameraManager != null)
+            arCameraManager.frameReceived -= OnCameraFrameReceived;
 #endif
 
         if (cameraNativeBuffer.IsCreated)
             cameraNativeBuffer.Dispose();
     }
 
-#if UNITY_EDITOR && USE_WEBCAM_IN_EDITOR
+#if UNITY_EDITOR
     private void StartWebcam()
     {
         if (originalImage == null)
@@ -142,7 +145,7 @@ public sealed class MarkerDetectionAR : MonoBehaviour
                 inputRect = new RectInt(0, 0, image.width, image.height),
                 outputDimensions = new Vector2Int(image.width, image.height),
                 outputFormat = TextureFormat.RGBA32,
-                transformation = XRCpuImage.Transformation.MirrorY
+                transformation = XRCpuImage.Transformation.None
             };
 
             int size = image.GetConvertedDataSize(conversionParams);
@@ -162,6 +165,9 @@ public sealed class MarkerDetectionAR : MonoBehaviour
 
     private void ProcessFrame(byte[] rgbaData, int width, int height)
     {
+        frameWidth = width;
+        frameHeight = height;
+
         EnsureFrameMats(width, height);
 
         int byteLength = width * height * 4;
@@ -214,51 +220,58 @@ public sealed class MarkerDetectionAR : MonoBehaviour
                 return;
             }
 
-            PointF[] srcQuad = Array.ConvertAll(quadContours[0].ToArray(), p => new PointF(p.X, p.Y));
-            srcQuad = OrderQuadPoints(srcQuad);
+            finalFrame = colorFrame.Clone();
 
-            using (Mat homography = CvInvoke.FindHomography(srcQuad, dstQuad, RobustEstimationAlgorithm.Ransac))
+            for (int qi = 0; qi < quadContours.Size; qi++)
             {
-                if (homography == null || homography.IsEmpty)
-                    return;
+                PointF[] srcQuad = Array.ConvertAll(quadContours[qi].ToArray(), p => new PointF(p.X, p.Y));
+                srcQuad = OrderQuadPoints(srcQuad);
 
-                CvInvoke.WarpPerspective(grayFrame, warpedFrame, homography, new Size(warpSize, warpSize));
-                CvInvoke.Threshold(warpedFrame, warpedFrame, 0, 255, ThresholdType.Otsu | ThresholdType.Binary);
-                UpdateRawImage(warpedFrame, warpedImage);
-
-                byte[,] grid = ExtractGridValues(warpedFrame, 6);
-                byte[,] normalized = NormalizeGrid(grid, 128);
-
-                BuildGridOverlay(warpedFrame, normalized, gridFrame, drawGridValues);
-                UpdateRawImage(gridFrame, gridImage);
-
-                finalFrame = colorFrame.Clone();
-
-                if (TryMatchMarker(normalized, out int markerId, out int rotationDeg))
+                using (Mat homography = CvInvoke.FindHomography(srcQuad, dstQuad, RobustEstimationAlgorithm.Ransac))
                 {
-                    CvInvoke.Polylines(finalFrame,
-                        Array.ConvertAll(srcQuad, p => new System.Drawing.Point((int)p.X, (int)p.Y)),
-                        true,
-                        new MCvScalar(0, 255, 0),
-                        2);
+                    if (homography == null || homography.IsEmpty)
+                        continue;
 
-                    CvInvoke.PutText(finalFrame,
-                        $"Marker {markerId} ({rotationDeg}°)",
-                        new System.Drawing.Point((int)srcQuad[0].X, (int)srcQuad[0].Y - 10),
-                        FontFace.HersheySimplex,
-                        0.7,
-                        new MCvScalar(255, 255, 255),
-                        2);
+                    CvInvoke.WarpPerspective(grayFrame, warpedFrame, homography, new Size(warpSize, warpSize));
+                    CvInvoke.Threshold(warpedFrame, warpedFrame, 0, 255, ThresholdType.Otsu | ThresholdType.Binary);
+                    UpdateRawImage(warpedFrame, warpedImage);
 
-                    Vector2 screenPos = new Vector2(
-                        (srcQuad[0].X + srcQuad[1].X + srcQuad[2].X + srcQuad[3].X) / 4f,
-                        (srcQuad[0].Y + srcQuad[1].Y + srcQuad[2].Y + srcQuad[3].Y) / 4f);
+                    byte[,] grid = ExtractGridValues(warpedFrame, 6);
+                    byte[,] normalized = NormalizeGrid(grid, 128);
 
-                    MarkerElementManager.Instance.RegisterMarker(markerId, rotationDeg, screenPos, srcQuad);
+                    BuildGridOverlay(warpedFrame, normalized, gridFrame, drawGridValues);
+                    UpdateRawImage(gridFrame, gridImage);
+
+                    if (TryMatchMarker(normalized, out int markerId, out int rotationDeg))
+                    {
+                        CvInvoke.Polylines(finalFrame,
+                            Array.ConvertAll(srcQuad, p => new System.Drawing.Point((int)p.X, (int)p.Y)),
+                            true,
+                            new MCvScalar(0, 255, 0),
+                            2);
+
+                        CvInvoke.PutText(finalFrame,
+                            $"Marker {markerId} ({rotationDeg}°)",
+                            new System.Drawing.Point((int)srcQuad[0].X, (int)srcQuad[0].Y - 10),
+                            FontFace.HersheySimplex,
+                            0.7,
+                            new MCvScalar(255, 255, 255),
+                            2);
+
+                        float cx = (srcQuad[0].X + srcQuad[1].X + srcQuad[2].X + srcQuad[3].X) / 4f;
+                        float cy = (srcQuad[0].Y + srcQuad[1].Y + srcQuad[2].Y + srcQuad[3].Y) / 4f;
+
+                        float vx = cx / frameWidth;
+                        float vy = cy / frameHeight;
+                        Vector3 viewportPos = new Vector3(vx, 1f - vy, 0f);
+                        Vector2 screenPos = arCamera.ViewportToScreenPoint(viewportPos);
+
+                        MarkerElementManager.Instance.RegisterMarker(markerId, rotationDeg, screenPos, srcQuad);
+                    }
                 }
-
-                UpdateRawImage(finalFrame, finalImage);
             }
+
+            UpdateRawImage(finalFrame, finalImage);
         }
     }
 
@@ -503,7 +516,7 @@ public sealed class MarkerDetectionAR : MonoBehaviour
             {0,255,255,255,255,0},
             {0,255,0,0,255,0},
             {0,255,0,255,0,0},
-            {0,0,0,0,0,0 }
+            {0,0,0,0,0,0}
         };
         patterns.Add(new MarkerPattern(3, GenerateAllTransforms(marker3)));
 
