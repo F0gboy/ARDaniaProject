@@ -1,133 +1,178 @@
 ﻿using System.Collections.Generic;
+using System.Drawing;
 using UnityEngine;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 
 public class MarkerElementManager : MonoBehaviour
 {
     public static MarkerElementManager Instance { get; private set; }
 
-    [Header("Element Prefabs")]
+    public Camera arCamera;
+    public ARRaycastManager arRaycastManager;
+    public ARCameraManager arCameraManager;
+
     public GameObject firePrefab;
     public GameObject waterPrefab;
     public GameObject windPrefab;
     public GameObject earthPrefab;
     public GameObject steamPrefab;
+    public GameObject mistPrefab;
+    public GameObject mudPrefab;
+    public GameObject dustPrefab;
+    public GameObject lavaPrefab;
 
-
-    [Header("Combination Settings")]
-    public float combineDistance = 0.5f;
-
-    private readonly List<ElementInstance> activeMarkers = new List<ElementInstance>();
+    private readonly Dictionary<int, ElementInstance> activeMarkers = new Dictionary<int, ElementInstance>();
+    private readonly List<ARRaycastHit> rayHits = new List<ARRaycastHit>();
 
     private readonly Dictionary<(ElementType, ElementType), ElementType> combinations =
         new Dictionary<(ElementType, ElementType), ElementType>
         {
-            {(ElementType.Fire,  ElementType.Wind),  ElementType.Steam},
-            {(ElementType.Wind,  ElementType.Fire),  ElementType.Steam},
-
-            {(ElementType.Fire,  ElementType.Water), ElementType.Mist},
-            {(ElementType.Water, ElementType.Fire),  ElementType.Mist},
-
+            {(ElementType.Fire,  ElementType.Water), ElementType.Steam},
+            {(ElementType.Water, ElementType.Fire),  ElementType.Steam},
+            {(ElementType.Fire,  ElementType.Wind), ElementType.Mist},
+            {(ElementType.Wind,  ElementType.Fire), ElementType.Mist},
             {(ElementType.Earth, ElementType.Water), ElementType.Mud},
             {(ElementType.Water, ElementType.Earth), ElementType.Mud},
-
             {(ElementType.Wind,  ElementType.Earth), ElementType.Dust},
             {(ElementType.Earth, ElementType.Wind),  ElementType.Dust},
+             {(ElementType.Fire, ElementType.Earth),  ElementType.Lava}
         };
 
     private void Awake()
     {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
         Instance = this;
     }
 
-    public void RegisterMarker(int markerId, int rotation, Vector3 worldPos)
+    public void RegisterMarker(int markerId, int rotationDeg, Vector2 screenPos, PointF[] srcQuad)
     {
         ElementType element = MarkerIdToElement(markerId);
-        Debug.Log($"RegisterMarker: ID={markerId}, element={element}, pos={worldPos}");
 
-        ElementInstance instance = new ElementInstance
+        Vector3 worldPos;
+        TrackableType mask = TrackableType.FeaturePoint | TrackableType.PlaneWithinPolygon | TrackableType.PlaneEstimated;
+
+        if (arRaycastManager.Raycast(screenPos, rayHits, mask))
+            worldPos = rayHits[0].pose.position;
+        else
         {
-            id = markerId,
-            rotation = rotation,
-            element = element,
-            worldPosition = worldPos
-        };
+            Ray ray = arCamera.ScreenPointToRay(screenPos);
+            worldPos = ray.origin + ray.direction * 0.5f;
+        }
 
-        // Spawn visual ONCE
-        instance.visual = Instantiate(GetPrefabForElement(element), worldPos, Quaternion.identity);
-        Debug.Log("Spawned visual: " + instance.visual);
+        if (!activeMarkers.TryGetValue(markerId, out ElementInstance instance))
+        {
+            instance = new ElementInstance
+            {
+                id = markerId,
+                element = element,
+                screenPosition = screenPos,
+                worldObject = Instantiate(GetPrefabForElement(element), arCamera.transform.parent)
+            };
 
-        activeMarkers.Add(instance);
+            activeMarkers[markerId] = instance;
+            Debug.Log($"[Marker] Spawned element {element} for marker {markerId}");
+        }
 
-        CheckForCombinations();
+        instance.screenPosition = screenPos;
+        instance.worldObject.transform.position = worldPos;
+
+        if (arCameraManager.TryGetIntrinsics(out XRCameraIntrinsics intrinsics))
+        {
+            float fx = intrinsics.focalLength.x;
+            float distance = Vector3.Distance(arCamera.transform.position, worldPos);
+
+            float pixelWidth = Vector2.Distance(
+                new Vector2(srcQuad[0].X, srcQuad[0].Y),
+                new Vector2(srcQuad[1].X, srcQuad[1].Y)
+            );
+
+            float worldWidth = (pixelWidth * distance) / fx;
+
+            if (!float.IsInfinity(worldWidth) && !float.IsNaN(worldWidth))
+                instance.worldObject.transform.localScale = new Vector3(worldWidth, worldWidth, worldWidth);
+        }
+
+        instance.worldObject.transform.LookAt(arCamera.transform);
+
+        TryAutoCombine();
+    }
+
+    private void TryAutoCombine()
+    {
+        if (activeMarkers.Count < 2)
+            return;
+
+        var keys = new List<int>(activeMarkers.Keys);
+
+        for (int i = 0; i < keys.Count; i++)
+        {
+            for (int j = i + 1; j < keys.Count; j++)
+            {
+                ElementInstance a = activeMarkers[keys[i]];
+                ElementInstance b = activeMarkers[keys[j]];
+
+                if (!combinations.TryGetValue((a.element, b.element), out ElementType result))
+                    continue;
+
+                Debug.Log($"[Combine] {a.element} + {b.element} → {result}");
+
+                Vector2 midScreen = (a.screenPosition + b.screenPosition) / 2f;
+
+                Vector3 worldPos;
+                TrackableType mask = TrackableType.FeaturePoint | TrackableType.PlaneWithinPolygon | TrackableType.PlaneEstimated;
+
+                if (arRaycastManager.Raycast(midScreen, rayHits, mask))
+                    worldPos = rayHits[0].pose.position;
+                else
+                {
+                    Ray ray = arCamera.ScreenPointToRay(midScreen);
+                    worldPos = ray.origin + ray.direction * 0.5f;
+                }
+
+                Destroy(a.worldObject);
+                Destroy(b.worldObject);
+
+                activeMarkers.Remove(a.id);
+                activeMarkers.Remove(b.id);
+
+                int newId = Random.Range(10000, 99999);
+
+                GameObject newObj = Instantiate(GetPrefabForElement(result), arCamera.transform.parent);
+                newObj.transform.position = worldPos;
+                newObj.transform.LookAt(arCamera.transform);
+
+                activeMarkers[newId] = new ElementInstance
+                {
+                    id = newId,
+                    element = result,
+                    screenPosition = midScreen,
+                    worldObject = newObj
+                };
+
+                Debug.Log($"[Combine] Spawned combined element {result}");
+
+                return;
+            }
+        }
     }
 
 
-    private GameObject GetPrefabForElement(ElementType element)
+    private GameObject GetPrefabForElement(ElementType type)
     {
-        return element switch
+        return type switch
         {
             ElementType.Fire => firePrefab,
             ElementType.Water => waterPrefab,
             ElementType.Wind => windPrefab,
             ElementType.Earth => earthPrefab,
             ElementType.Steam => steamPrefab,
+            ElementType.Mist => mistPrefab,
+            ElementType.Mud => mudPrefab,
+            ElementType.Dust => dustPrefab,
+            ElementType.Lava => lavaPrefab,
             _ => null
         };
     }
-
-
-
-    private void CheckForCombinations()
-    {
-        for (int i = 0; i < activeMarkers.Count; i++)
-        {
-            for (int j = i + 1; j < activeMarkers.Count; j++)
-            {
-                ElementInstance a = activeMarkers[i];
-                ElementInstance b = activeMarkers[j];
-
-                float dist = Vector3.Distance(a.worldPosition, b.worldPosition);
-
-                if (dist <= combineDistance)
-                {
-                    TryCombine(a, b);
-                }
-            }
-        }
-    }
-
-    private void TryCombine(ElementInstance a, ElementInstance b)
-    {
-        if (combinations.TryGetValue((a.element, b.element), out ElementType result))
-        {
-            Debug.Log($"Combined {a.element} + {b.element} → {result}");
-
-            // Hide old visuals
-            if (a.visual != null) a.visual.SetActive(false);
-            if (b.visual != null) b.visual.SetActive(false);
-
-            // Find midpoint
-            Vector3 mid = (a.worldPosition + b.worldPosition) / 2f;
-
-            // Spawn combined element
-            GameObject combined = Instantiate(GetPrefabForElement(result), mid, Quaternion.identity);
-
-            // Update both markers
-            a.element = result;
-            b.element = result;
-
-            a.visual = combined;
-            b.visual = combined;
-            Debug.Log($"COMBINATION TRIGGERED: {a.element} + {b.element}");
-
-        }
-    }
-
 
     private ElementType MarkerIdToElement(int id)
     {
@@ -144,11 +189,9 @@ public class MarkerElementManager : MonoBehaviour
     private class ElementInstance
     {
         public int id;
-        public int rotation;
         public ElementType element;
-        public Vector3 worldPosition;
-
-        public GameObject visual;
+        public Vector2 screenPosition;
+        public GameObject worldObject;
     }
 
     public enum ElementType
@@ -161,6 +204,7 @@ public class MarkerElementManager : MonoBehaviour
         Steam,
         Mist,
         Mud,
-        Dust
+        Dust,
+        Lava
     }
 }

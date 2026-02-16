@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 660919669643573445}
   - component: {fileID: 7047605514844217030}
   - component: {fileID: 6083602316705070091}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: SteamPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}

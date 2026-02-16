@@ -38,7 +38,6 @@ public sealed class MarkerDetectionAR : MonoBehaviour
     [SerializeField] private int warpSize = 300;
     [SerializeField] private double minContourArea = 6500;
     [SerializeField] private bool drawGridValues = true;
-    [SerializeField] private float spawnDistance = 1.0f;
 
     private readonly Dictionary<RawImage, Texture2D> textures = new Dictionary<RawImage, Texture2D>();
     private NativeArray<byte> cameraNativeBuffer;
@@ -95,23 +94,15 @@ public sealed class MarkerDetectionAR : MonoBehaviour
     private void StartWebcam()
     {
         if (originalImage == null)
-        {
-            Debug.LogError("originalImage RawImage is NOT assigned in the Inspector.");
             return;
-        }
 
         var devices = WebCamTexture.devices;
         if (devices.Length == 0)
-        {
-            Debug.LogError("No webcam found");
             return;
-        }
 
         webcam = new WebCamTexture(devices[webcamIndex].name, 1280, 720, 30);
         originalImage.texture = webcam;
         webcam.Play();
-
-        Debug.Log("Webcam started: " + devices[webcamIndex].name);
     }
 
     private void Update()
@@ -259,16 +250,37 @@ public sealed class MarkerDetectionAR : MonoBehaviour
                         new MCvScalar(255, 255, 255),
                         2);
 
-                    Vector3 worldPos =
-                        arCamera.transform.position +
-                        arCamera.transform.forward * spawnDistance;
+                    Vector2 screenPos = new Vector2(
+                        (srcQuad[0].X + srcQuad[1].X + srcQuad[2].X + srcQuad[3].X) / 4f,
+                        (srcQuad[0].Y + srcQuad[1].Y + srcQuad[2].Y + srcQuad[3].Y) / 4f);
 
-                    MarkerElementManager.Instance.RegisterMarker(markerId, rotationDeg, worldPos);
+                    MarkerElementManager.Instance.RegisterMarker(markerId, rotationDeg, screenPos, srcQuad);
                 }
 
                 UpdateRawImage(finalFrame, finalImage);
             }
         }
+    }
+
+    private bool TryMatchMarker(byte[,] observed, out int markerId, out int rotationDeg)
+    {
+        markerId = -1;
+        rotationDeg = 0;
+
+        foreach (MarkerPattern pattern in markers)
+        {
+            for (int i = 0; i < pattern.Rotations.Count; i++)
+            {
+                if (GridEquals(observed, pattern.Rotations[i]))
+                {
+                    markerId = pattern.Id;
+                    rotationDeg = i * 90;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private void EnsureFrameMats(int width, int height)
@@ -438,27 +450,6 @@ public sealed class MarkerDetectionAR : MonoBehaviour
         }
     }
 
-    private bool TryMatchMarker(byte[,] observed, out int markerId, out int rotationDeg)
-    {
-        markerId = -1;
-        rotationDeg = 0;
-
-        foreach (MarkerPattern pattern in markers)
-        {
-            for (int i = 0; i < pattern.Rotations.Count; i++)
-            {
-                if (GridEquals(observed, pattern.Rotations[i]))
-                {
-                    markerId = pattern.Id;
-                    rotationDeg = i * 90;
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     private static bool GridEquals(byte[,] a, byte[,] b)
     {
         int rows = a.GetLength(0);
@@ -482,39 +473,39 @@ public sealed class MarkerDetectionAR : MonoBehaviour
     private static List<MarkerPattern> CreateMarkerPatterns()
     {
         List<MarkerPattern> patterns = new List<MarkerPattern>();
+
         byte[,] marker1 =
         {
-            { 0,   0,   0,   0,   0,   0 },
-            { 0,   0,   255, 255, 255, 0 },
-            { 0, 255,   0,   0, 255,   0 },
-            { 0, 255, 255,   0,   0,   0 },
-            { 0, 255, 255,   0, 255,   0 },
-            { 0,   0,   0,   0,   0,   0 }
+            { 0,0,0,0,0,0 },
+            { 0,0,255,255,255,0 },
+            { 0,255,0,0,255,0 },
+            { 0,255,255,0,0,0 },
+            { 0,255,255,0,255,0 },
+            { 0,0,0,0,0,0 }
         };
-        patterns.Add(new MarkerPattern(1, GenerateRotations(marker1)));
+        patterns.Add(new MarkerPattern(1, GenerateAllTransforms(marker1)));
 
         byte[,] marker2 =
         {
-            {0,   0,   0,   0,   0,    0},
-            {0, 255,   0, 255, 255,    0},
-            {0,   0, 255,   0, 255,     0},
-            {0,   0,   0, 255, 255,    0},
+            {0,0,0,0,0,0},
+            {0,255,0,255,255,0},
+            {0,0,255,0,255,0},
+            {0,0,0,255,255,0},
             {0,0,0,0,255,0},
             {0,0,0,0,0,0}
         };
-        patterns.Add(new MarkerPattern(2, GenerateRotations(marker2)));
+        patterns.Add(new MarkerPattern(2, GenerateAllTransforms(marker2)));
 
         byte[,] marker3 =
         {
-
             {0,0,0,0,0,0},
             {0,0,0,0,0,0},
             {0,255,255,255,255,0},
             {0,255,0,0,255,0},
             {0,255,0,255,0,0},
-            {0,0,0,0,0,0}
+            {0,0,0,0,0,0 }
         };
-        patterns.Add(new MarkerPattern(3, GenerateRotations(marker3)));
+        patterns.Add(new MarkerPattern(3, GenerateAllTransforms(marker3)));
 
         byte[,] marker4 =
         {
@@ -525,21 +516,62 @@ public sealed class MarkerDetectionAR : MonoBehaviour
             {0,255,255,0,255,0},
             {0,0,0,0,0,0}
         };
-        patterns.Add(new MarkerPattern(4, GenerateRotations(marker4)));
+        patterns.Add(new MarkerPattern(4, GenerateAllTransforms(marker4)));
 
         return patterns;
     }
 
-    private static List<byte[,]> GenerateRotations(byte[,] baseMarker)
+    private static List<byte[,]> GenerateAllTransforms(byte[,] baseMarker)
     {
-        List<byte[,]> rotations = new List<byte[,]> { baseMarker };
-        byte[,] rot90 = Rotate90(baseMarker);
-        byte[,] rot180 = Rotate90(rot90);
-        byte[,] rot270 = Rotate90(rot180);
-        rotations.Add(rot90);
-        rotations.Add(rot180);
-        rotations.Add(rot270);
-        return rotations;
+        List<byte[,]> list = new List<byte[,]>();
+
+        byte[,] r0 = baseMarker;
+        byte[,] r90 = Rotate90(r0);
+        byte[,] r180 = Rotate90(r90);
+        byte[,] r270 = Rotate90(r180);
+
+        list.Add(r0);
+        list.Add(r90);
+        list.Add(r180);
+        list.Add(r270);
+
+        list.Add(FlipHorizontal(r0));
+        list.Add(FlipHorizontal(r90));
+        list.Add(FlipHorizontal(r180));
+        list.Add(FlipHorizontal(r270));
+
+        list.Add(FlipVertical(r0));
+        list.Add(FlipVertical(r90));
+        list.Add(FlipVertical(r180));
+        list.Add(FlipVertical(r270));
+
+        return list;
+    }
+
+    private static byte[,] FlipHorizontal(byte[,] input)
+    {
+        int rows = input.GetLength(0);
+        int cols = input.GetLength(1);
+        byte[,] output = new byte[rows, cols];
+
+        for (int y = 0; y < rows; y++)
+            for (int x = 0; x < cols; x++)
+                output[y, x] = input[y, cols - 1 - x];
+
+        return output;
+    }
+
+    private static byte[,] FlipVertical(byte[,] input)
+    {
+        int rows = input.GetLength(0);
+        int cols = input.GetLength(1);
+        byte[,] output = new byte[rows, cols];
+
+        for (int y = 0; y < rows; y++)
+            for (int x = 0; x < cols; x++)
+                output[y, x] = input[rows - 1 - y, x];
+
+        return output;
     }
 
     private static byte[,] Rotate90(byte[,] input)
