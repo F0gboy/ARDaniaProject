@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 848409ee8ba454f42a5ddff137688a27, type: 3}
+  m_Name: ReferenceImageLibrary
+  m_EditorClassIdentifier: Unity.XR.ARSubsystems::UnityEngine.XR.ARSubsystems.XRReferenceImageLibrary
+  m_GuidLow: 5505895698787606744
+  m_GuidHigh: 11329778968918276764
+  m_DataStore:
+    m_Storage: []
+  m_Images:
+  - m_SerializedGuid:
+      m_GuidLow: 5117615149316383385
+      m_GuidHigh: 10444911192631515821
+    m_SerializedTextureGuid:
+      m_GuidLow: 12471754526825138055
+      m_GuidHigh: 16405142251891414267
+    m_Size: {x: 0, y: 0}
+    m_SpecifySize: 0
+    m_Name: Earth
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 4821749507151193635
+      m_GuidHigh: 16134867493831230909
+    m_SerializedTextureGuid:
+      m_GuidLow: 9476777574616188134
+      m_GuidHigh: 372226560237257256
+    m_Size: {x: 0, y: 0}
+    m_SpecifySize: 0
+    m_Name: Fire
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5530674771916934429
+      m_GuidHigh: 6230978065226183102
+    m_SerializedTextureGuid:
+      m_GuidLow: 10143498424901935568
+      m_GuidHigh: 6773926095024157177
+    m_Size: {x: 0, y: 0}
+    m_SpecifySize: 0
+    m_Name: Wind
+    m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5132401105033914017
+      m_GuidHigh: 9014894559496054917
+    m_SerializedTextureGuid:
+      m_GuidLow: 1064170893437918136
+      m_GuidHigh: 8672857352674676171
+    m_Size: {x: 0, y: 0}
+    m_SpecifySize: 0
+    m_Name: Water
+    m_Texture: {fileID: 0}
